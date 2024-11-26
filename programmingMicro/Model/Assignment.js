@@ -6,11 +6,8 @@ const assignmentSchema = new mongoose.Schema({
   description: { type: String, required: true },
   reference_code: { type: String, required: true },
   rubric: {
-    syntax_correctness: { type: Number, required: true },
-    output_match: { type: Number, required: true },
-    code_quality: { type: Number, required: true },
-    error_handling: { type: Number, required: true },
-    boundary_conditions: { type: Number, required: true },
+    type: Map, // Dynamic key-value structure for grades
+    of: Number, // Grade values are numbers
   },
   instructor_id: {
     type: mongoose.Schema.Types.ObjectId,
