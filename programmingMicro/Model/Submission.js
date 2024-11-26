@@ -13,18 +13,12 @@ const submissionSchema = new mongoose.Schema({
   }, // Reference to the student
   submitted_code: { type: String, required: true },
   grades: {
-    syntax_correctness: { type: Number },
-    output_match: { type: Number },
-    code_quality: { type: Number },
-    error_handling: { type: Number },
-    boundary_conditions: { type: Number },
+    type: Map, // Dynamic key-value pairs for grades
+    of: Number, // Values represent the grade (Number)
   },
   feedback: {
-    syntax_correctness: { type: String },
-    output_match: { type: String },
-    code_quality: { type: String },
-    error_handling: { type: String },
-    boundary_conditions: { type: String },
+    type: Map, // Dynamic key-value pairs for feedback
+    of: String, // Values represent the feedback (String)
   },
   total_score: { type: Number },
   submitted_at: { type: Date, default: Date.now },
