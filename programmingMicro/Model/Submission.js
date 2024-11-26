@@ -3,25 +3,37 @@ const mongoose = require("mongoose");
 const submissionSchema = new mongoose.Schema({
   assignment_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Assignment",
+    ref: "Assignment", // Reference to the Assignment model
     required: true,
-  }, // Reference to the assignment
+  },
   student_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: "User", // Reference to the User model
     required: true,
-  }, // Reference to the student
-  submitted_code: { type: String, required: true },
+  },
+  submitted_code: {
+    type: String,
+    required: true,
+  },
   grades: {
-    type: Map, // Dynamic key-value pairs for grades
-    of: Number, // Values represent the grade (Number)
+    type: Map, // Dynamic key-value structure for grades
+    of: Number, // Grade values are numbers
   },
   feedback: {
-    type: Map, // Dynamic key-value pairs for feedback
-    of: String, // Values represent the feedback (String)
+    type: Map, // Dynamic key-value structure for feedback
+    of: String, // Feedback values are strings
   },
-  total_score: { type: Number },
-  submitted_at: { type: Date, default: Date.now },
+  total_score: {
+    type: Number, // Overall score for the submission
+    required: true,
+  },
+  detailed_results: {
+    type: Object, // Stores the entire evaluation response
+  },
+  submitted_at: {
+    type: Date,
+    default: Date.now, // Automatically records the submission time
+  },
 });
 
 module.exports = mongoose.model("Submission", submissionSchema);
