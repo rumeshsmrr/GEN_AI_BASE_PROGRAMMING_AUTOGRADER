@@ -35,6 +35,7 @@ exports.evaluateAndSaveSubmission = async (req, res) => {
       rubric,
     };
 
+    console.log(requestData);
     // Call the Flask API for evaluation
     const flaskResponse = await axios.post(flaskApiUrl, requestData);
 
