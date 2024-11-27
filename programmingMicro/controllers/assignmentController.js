@@ -143,3 +143,22 @@ exports.getAllAssignmentForStudent = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+//get single assignment by ID for student
+exports.getSingleForStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const assignment = await Assignment.findById(id, { reference_code: 0 });
+
+    if (!assignment) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Assignment not found" });
+    }
+
+    res.status(200).json({ success: true, data: assignment });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
