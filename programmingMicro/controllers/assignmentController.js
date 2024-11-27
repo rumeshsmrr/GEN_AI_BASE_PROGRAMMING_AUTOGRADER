@@ -132,3 +132,14 @@ exports.getAssignmentById = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+//get all assignment without reference code
+exports.getAllAssignmentForStudent = async (req, res) => {
+  console.log("get all assignment for student");
+  try {
+    const assignments = await Assignment.find({}, { reference_code: 0 });
+    res.status(200).json({ success: true, data: assignments });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
