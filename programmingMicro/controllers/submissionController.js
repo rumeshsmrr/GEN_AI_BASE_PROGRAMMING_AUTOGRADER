@@ -4,8 +4,7 @@ const Assignment = require("../Model/Assignment"); // Import the Assignment mode
 
 exports.evaluateAndSaveSubmission = async (req, res) => {
   try {
-    const { assignment_id, student_id, answer_code, input_data, rubric } =
-      req.body;
+    const { assignment_id, student_id, answer_code, input_data } = req.body;
 
     if (!assignment_id || !student_id || !answer_code) {
       return res
@@ -13,8 +12,11 @@ exports.evaluateAndSaveSubmission = async (req, res) => {
         .json({ success: false, message: "Missing required fields" });
     }
 
+    // console.log(req.body);
+    console.log(req.body.assignment_id);
+
     // Fetch the reference_code from the database using assignment_id
-    const assignment = await Assignment.findById(assignment_id);
+    const assignment = await Assignment.findById(req.body.assignment_id);
     if (!assignment) {
       return res
         .status(404)
@@ -22,6 +24,7 @@ exports.evaluateAndSaveSubmission = async (req, res) => {
     }
 
     const reference_code = assignment.reference_code;
+    const rubric = assignment.rubric;
 
     // Prepare data for the Flask API
     const flaskApiUrl = "http://127.0.0.1:5000/evaluate";
