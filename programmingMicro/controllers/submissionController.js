@@ -66,3 +66,78 @@ exports.evaluateAndSaveSubmission = async (req, res) => {
     });
   }
 };
+
+//get all submissions
+exports.getAllSubmissions = async (req, res) => {
+  try {
+    const submissions = await Submission.find();
+    res.status(200).json({ success: true, data: submissions });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+//get single submission by ID
+exports.getSubmissionById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const submission = await Submission.findById(id);
+
+    if (!submission) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Submission not found" });
+    }
+
+    res.status(200).json({ success: true, data: submission });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+//get all submition by lecturer
+
+exports.getAllSubmissionsByLecturer = async (req, res) => {
+  try {
+    const { instructor_id } = req.params;
+
+    const submissions = await Submission.find({ instructor_id });
+
+    res.status(200).json({ success: true, data: submissions });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+//get all submissions by student
+exports.getAllSubmissionsByStudent = async (req, res) => {
+  try {
+    const { student_id } = req.params;
+
+    const submissions = await Submission.find({ student_id });
+
+    res.status(200).json({ success: true, data: submissions });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+//get single submission by ID for student
+exports.getSingleSubmissionForStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const submission = await Submission.findById(id);
+
+    if (!submission) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Submission not found" });
+    }
+
+    res.status(200).json({ success: true, data: submission });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
