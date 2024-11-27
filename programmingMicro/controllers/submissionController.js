@@ -96,13 +96,12 @@ exports.getSubmissionById = async (req, res) => {
   }
 };
 
-//get all submition by lecturer
-
-exports.getAllSubmissionsByLecturer = async (req, res) => {
+//get all submition by assignment id
+exports.getAllSubmissionsByAssignment = async (req, res) => {
   try {
-    const { instructor_id } = req.params;
+    const { assignment_id } = req.params;
 
-    const submissions = await Submission.find({ instructor_id });
+    const submissions = await Submission.find({ assignment_id });
 
     res.status(200).json({ success: true, data: submissions });
   } catch (error) {
