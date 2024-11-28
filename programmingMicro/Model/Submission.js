@@ -19,6 +19,7 @@ const submissionSchema = new mongoose.Schema({
     type: Map, // Dynamic key-value structure for grades
     of: Number, // Grade values are numbers
   },
+  code_similarity_percentage: { type: Number, default: 0 },
   feedback: {
     type: Map, // Dynamic key-value structure for feedback
     of: String, // Feedback values are strings

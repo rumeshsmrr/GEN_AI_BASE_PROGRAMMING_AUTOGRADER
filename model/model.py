@@ -1,103 +1,132 @@
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
 import torch
-import subprocess
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import subprocess
+import javalang
 
-# Load CodeT5 (or other similar model) for prompt-based evaluations
+# Load CodeT5 for prompt-based evaluations
 model_name = "Salesforce/codet5-small"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
-# Load CodeT5 for classification tasks (e.g., syntax checking)
+# Load CodeBERT for syntax checking
 classification_model_name = "microsoft/codebert-base"
 classification_tokenizer = AutoTokenizer.from_pretrained(classification_model_name)
 classification_model = AutoModelForSequenceClassification.from_pretrained(classification_model_name)
 
-# Generate prompt for a criterion using CodeT5
-def generate_prompt_for_criterion(criterion):
+def normalize_code(code):
     """
-    Generates a question for the LLM to evaluate the Java program based on a criterion.
+    Normalizes the code by removing extra whitespace and formatting inconsistencies.
     """
-    input_text = f"Create a question to evaluate Java code for the following criterion: {criterion}."
-    input_ids = tokenizer(input_text, return_tensors="pt", max_length=512, truncation=True)
+    return "\n".join(line.strip() for line in code.splitlines() if line.strip())
 
-    # Generate the prompt
-    output_ids = model.generate(input_ids["input_ids"], max_length=50, num_return_sequences=1)
-    generated_prompt = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-    return generated_prompt
+def evaluate_syntax_errors_with_javalang(code_snippet):
+    """
+    Validates Java syntax using javalang.
+    Returns the number of syntax errors found.
+    """
+    try:
+        javalang.parse.parse(code_snippet)
+        return 0  # No syntax errors
+    except javalang.parser.JavaSyntaxError as e:
+        print(f"Syntax error detected by javalang: {e}")
+        return 1  # Count as one syntax error
+    except Exception as e:
+        print(f"Unexpected error in javalang: {e}")
+        return 1  # Count as one syntax error for unexpected issues
 
-# Syntax error evaluation
-def evaluate_syntax_errors(code_snippet):
+def evaluate_syntax_errors(code_snippet, rubric_weight):
     """
-    Uses CodeBERT to check if the syntax of the code is correct.
+    Uses CodeBERT and javalang to validate syntax.
+    Reduces 0.5 marks per syntax error.
     """
-    prompt = f"Check the syntax of the following Java code:\n{code_snippet}"
-    inputs = classification_tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=512)
-    with torch.no_grad():
-        outputs = classification_model(**inputs)
-    logits = outputs.logits
-    predicted_label = torch.argmax(logits).item()
-    return 100 if predicted_label == 1 else 0
+    max_score = rubric_weight  # Max score for syntax correctness
+    error_penalty = 0.5  # Deduction per syntax error
 
-# Validate method existence
-def validate_method_existence(code_snippet, method_name):
-    """
-    Validates if a specific method exists in the Java class.
-    """
-    return 100 if f"{method_name}(" in code_snippet else 0
+    # Start with CodeBERT-based syntax checking
+    try:
+        prompt = f"Is the syntax of this Java code correct? Yes or No:\n{code_snippet}"
+        inputs = classification_tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=512)
+        with torch.no_grad():
+            outputs = classification_model(**inputs)
+        logits = outputs.logits
+        predicted_label = torch.argmax(logits).item()
 
-# Evaluate code similarity using TF-IDF and cosine similarity
+        # If CodeBERT detects syntax errors, apply one penalty
+        if predicted_label != 1:
+            max_score -= error_penalty
+    except Exception as e:
+        print(f"CodeBERT syntax check failed: {e}")
+        max_score -= error_penalty
+
+    # Fall back to javalang for more granular error detection
+    syntax_errors = evaluate_syntax_errors_with_javalang(code_snippet)
+    max_score -= syntax_errors * error_penalty
+
+    # Ensure score is not negative
+    return max(0, max_score)
+
 def evaluate_code_similarity(ref_code, ans_code):
-    vectorizer = TfidfVectorizer().fit_transform([ref_code, ans_code])
+    """
+    Evaluate code similarity using normalized TF-IDF and cosine similarity.
+    """
+    ref_code_normalized = normalize_code(ref_code)
+    ans_code_normalized = normalize_code(ans_code)
+
+    vectorizer = TfidfVectorizer().fit_transform([ref_code_normalized, ans_code_normalized])
     vectors = vectorizer.toarray()
     cosine_sim = cosine_similarity(vectors)[0, 1]
     return cosine_sim * 100
 
-# Compile and execute Java code
-def run_java_code(code, input_data, filename):
+def run_java_code(code, input_data="", filename="Temp"):
     """
-    Compiles and runs the given Java code.
+    Compiles and runs Java code, handling input data.
     """
     filename = f"{filename}.java"
-    with open(filename, "w") as f:
-        f.write(code)
+    try:
+        with open(filename, "w") as f:
+            f.write(code)
 
-    # Compile Java code
-    compile_process = subprocess.run(["javac", filename], capture_output=True, text=True)
-    if compile_process.returncode != 0:
-        return f"Compilation Error: {compile_process.stderr}"
+        # Compile Java code
+        compile_process = subprocess.run(["javac", filename], capture_output=True, text=True)
+        if compile_process.returncode != 0:
+            return f"Compilation Error: {compile_process.stderr.strip()}"
 
-    # Run Java program
-    run_process = subprocess.run(
-        ["java", filename.replace(".java", "")],
-        input=input_data,
-        text=True,
-        capture_output=True,
-    )
-    if run_process.returncode != 0:
-        return f"Runtime Error: {run_process.stderr}"
+        # Run Java program
+        run_process = subprocess.run(
+            ["java", filename.replace(".java", "")],
+            input=input_data,
+            text=True,
+            capture_output=True
+        )
+        if run_process.returncode != 0:
+            return f"Runtime Error: {run_process.stderr.strip()}"
 
-    return run_process.stdout
+        return run_process.stdout.strip()
+    except Exception as e:
+        return f"Error: {str(e)}"
 
-# Evaluate output match
-def evaluate_output_match(reference_code, answer_code, input_data=""):
-    ref_output = run_java_code(reference_code, input_data, "Reference")
-    ans_output = run_java_code(answer_code, input_data, "Answer")
-    return compare_outputs(ref_output, ans_output)
-
-# Compare outputs
 def compare_outputs(ref_output, ans_output):
     """
     Compares outputs line by line and calculates a match percentage.
     """
-    ref_lines = ref_output.splitlines()
-    ans_lines = ans_output.splitlines()
+    ref_lines = [line.strip() for line in ref_output.splitlines() if line.strip()]
+    ans_lines = [line.strip() for line in ans_output.splitlines() if line.strip()]
+    
     total_lines = max(len(ref_lines), len(ans_lines))
     matching_lines = sum(1 for ref, ans in zip(ref_lines, ans_lines) if ref == ans)
+
     return (matching_lines / total_lines) * 100 if total_lines > 0 else 0.0
 
-# Evaluate dynamic criteria with LLM
+def evaluate_output_match(reference_code, answer_code, input_data=""):
+    """
+    Compares the output of reference and answer code executions.
+    """
+    ref_output = run_java_code(reference_code, input_data, "Reference")
+    ans_output = run_java_code(answer_code, input_data, "Answer")
+    return compare_outputs(ref_output, ans_output)
+
 def evaluate_dynamic_criteria_with_llm(code_snippet, criteria, rubric):
     """
     Evaluates multiple criteria dynamically using CodeT5.
@@ -108,44 +137,48 @@ def evaluate_dynamic_criteria_with_llm(code_snippet, criteria, rubric):
         if weight == 0:
             continue
 
-        prompt = generate_prompt_for_criterion(criterion)
-        complete_prompt = f"{prompt}\n{code_snippet}"
+        try:
+            prompt = f"Evaluate the following Java code for the criterion: {criterion}\n{code_snippet}"
+            inputs = tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=512)
+            with torch.no_grad():
+                outputs = model.generate(inputs["input_ids"], max_length=50)
+            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-        inputs = tokenizer(complete_prompt, return_tensors="pt", truncation=True, padding=True, max_length=512)
-        with torch.no_grad():
-            outputs = model.generate(inputs["input_ids"], max_length=50)
-        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        # Assume response contains "yes"/"no" or similar and score accordingly
-        results[criterion] = 100 if "yes" in response.lower() else 50
-        results[criterion] *= weight / 100
+            results[criterion] = 100 if "yes" in response.lower() else 50
+            results[criterion] *= weight / 100
+        except Exception as e:
+            results[criterion] = 0
+            print(f"Error evaluating criterion {criterion}: {e}")
     return results
 
-# Main evaluation function
 def evaluate_code(reference_code, answer_code, input_data="", rubric={}):
     """
-    Main function to evaluate a Java program against a rubric.
+    Main function to evaluate a Java program against a rubric. If code similarity is 100%, final score is set to 100.
     """
     # Static evaluations
-    syntax_score = evaluate_syntax_errors(answer_code)
+    syntax_score = evaluate_syntax_errors(answer_code, rubric.get("syntax_correctness", 10))
     output_match = evaluate_output_match(reference_code, answer_code, input_data)
     code_similarity = evaluate_code_similarity(reference_code, answer_code)
 
     # Initialize results
     results = {
-        "syntax_score": syntax_score * rubric.get("syntax_correctness", 0) / 100,
+        "syntax_score": syntax_score,
         "output_match_percentage": output_match * rubric.get("output_match", 0) / 100,
-        "code_similarity_percentage": code_similarity * rubric.get("code_similarity", 0) / 100,
     }
 
-    # Dynamic evaluations
+    # Add dynamic rubric evaluations
     dynamic_criteria = [key for key in rubric if key not in ["syntax_correctness", "output_match", "code_similarity"]]
     dynamic_scores = evaluate_dynamic_criteria_with_llm(answer_code, dynamic_criteria, rubric)
     results.update(dynamic_scores)
 
-    # Final score
-    final_score = min(100, sum(results.values()))
+    # Compute final score
+    if code_similarity == 100:  # If code similarity is perfect, set the final score to 100
+        final_score = 100
+    else:
+        final_score = min(100, sum(results.values()))  # Calculate based on rubric
+
     return {
         "final_score": round(final_score, 2),
         "detailed_results": results,
+        "code_similarity_percentage": round(code_similarity, 2)  
     }

@@ -42,6 +42,8 @@ exports.evaluateAndSaveSubmission = async (req, res) => {
     // Extract evaluation result from Flask API response
     const evaluationResult = flaskResponse.data;
 
+    console.log(evaluationResult);
+
     // Save the evaluation result in the database
     const submission = new Submission({
       assignment_id,
@@ -50,6 +52,7 @@ exports.evaluateAndSaveSubmission = async (req, res) => {
       grades: evaluationResult.detailed_results,
       total_score: evaluationResult.final_score,
       detailed_results: evaluationResult.detailed_results,
+      code_similarity_percentage: evaluationResult.code_similarity_percentage,
     });
 
     await submission.save();

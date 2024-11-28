@@ -14,6 +14,7 @@ const assignmentSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   }, // Reference to the instructor
+
   created_at: { type: Date, default: Date.now },
   deadline: { type: Date, required: true },
 });
