@@ -35,6 +35,10 @@ const submissionSchema = new mongoose.Schema({
     type: Date,
     default: Date.now, // Automatically records the submission time
   },
+  code_similarity_details: {
+    type: Map,
+    of: String,
+  },
 });
 
 module.exports = mongoose.model("Submission", submissionSchema);

@@ -12,10 +12,6 @@ exports.evaluateAndSaveSubmission = async (req, res) => {
         .json({ success: false, message: "Missing required fields" });
     }
 
-    // console.log(req.body);
-    console.log(req.body.assignment_id);
-
-    // Fetch the reference_code from the database using assignment_id
     const assignment = await Assignment.findById(req.body.assignment_id);
     if (!assignment) {
       return res
@@ -26,7 +22,6 @@ exports.evaluateAndSaveSubmission = async (req, res) => {
     const reference_code = assignment.reference_code;
     const rubric = assignment.rubric;
 
-    // Prepare data for the Flask API
     const flaskApiUrl = "http://127.0.0.1:5000/evaluate";
     const requestData = {
       reference_code,
@@ -35,24 +30,25 @@ exports.evaluateAndSaveSubmission = async (req, res) => {
       rubric,
     };
 
-    console.log(requestData);
-    // Call the Flask API for evaluation
+    console.log("Request Data:", requestData);
     const flaskResponse = await axios.post(flaskApiUrl, requestData);
-
-    // Extract evaluation result from Flask API response
     const evaluationResult = flaskResponse.data;
 
-    console.log(evaluationResult);
+    console.log("Evaluation Result:", evaluationResult);
 
-    // Save the evaluation result in the database
+    if (!evaluationResult.grades) {
+      throw new Error("Grades field missing in Flask API response");
+    }
+
     const submission = new Submission({
       assignment_id,
       student_id,
       submitted_code: answer_code,
-      grades: evaluationResult.detailed_results,
-      total_score: evaluationResult.final_score,
-      detailed_results: evaluationResult.detailed_results,
+      grades: evaluationResult.grades || {},
+      total_score: evaluationResult.total_score || 0,
+      detailed_results: evaluationResult.grades || {},
       code_similarity_percentage: evaluationResult.code_similarity_percentage,
+      code_similarity_details: evaluationResult.code_similarity_details || {},
     });
 
     await submission.save();

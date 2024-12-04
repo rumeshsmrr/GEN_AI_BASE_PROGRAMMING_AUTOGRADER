@@ -36,6 +36,26 @@ exports.createAssignment = async (req, res) => {
       deadline,
     } = req.body;
 
+    // Ensure rubric is an object
+    if (typeof rubric !== "object" || Array.isArray(rubric)) {
+      return res.status(400).json({
+        success: false,
+        message: "Rubric must be an object with key-value pairs",
+      });
+    }
+
+    // Check if the total grade of the criteria is 100
+    const totalGrade = Object.values(rubric).reduce(
+      (sum, grade) => sum + grade,
+      0
+    );
+    if (totalGrade !== 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Total grade of the criteria must be 100",
+      });
+    }
+
     // Generate unique assignmentID
     const assignmentID = await generateAssignmentID();
 
