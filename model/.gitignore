@@ -10,6 +10,12 @@ env/
 .venv/
 .ENV/
 .venv/
+.vevn/
+vevn/
+venv/
+venv
+
+
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
@@ -37,3 +43,4 @@ build/
 
 Answer.java
 Reference.java
+Temp.java

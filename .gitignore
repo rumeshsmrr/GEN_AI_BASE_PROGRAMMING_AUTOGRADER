@@ -11,12 +11,15 @@ env/
 .ENV/
 .venv/
 
+# Node.js
+node_modules/
+
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
 
 # Logs and local environment files
 *.log
-*.env
+.env
 
 # Ignore system files
 .DS_Store
@@ -34,6 +37,6 @@ build/
 *.pytest_cache/
 *.pyre/
 
-
+# Java files
 Answer.java
 Reference.java
